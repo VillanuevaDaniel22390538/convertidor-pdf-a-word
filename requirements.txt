@@ -1,0 +1,6 @@
+PyQt5
+pdf2docx
+PyPDF2
+pdf2image
+pytesseract
+python-docx
