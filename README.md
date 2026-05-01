@@ -73,3 +73,9 @@ Créditos
 Hecho con ❤️ por Daniel Donaldo Villanueva Canul
 
 ---
+
+## 🔮 Roadmap
+- [ ] Añadir soporte para más idiomas en OCR.
+- [ ] Mejorar la interfaz con temas oscuros.
+- [ ] Crear instalador con asistente (setup.exe).
+- [ ] Publicar versión multiplataforma (Linux/Mac).
