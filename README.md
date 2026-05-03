@@ -1,81 +1,94 @@
-# 📄 Convert - PDF a Word Converter
+# Convertidor Profesional de Documentos Hailie v2.0
 
-![Versión](https://img.shields.io/badge/version-1.0-green)
-![Estado](https://img.shields.io/badge/status-stable-blue)
-![Licencia](https://img.shields.io/badge/license-MIT-orange)
+![Version](https://img.shields.io/badge/version-2.0-green)
+![Status](https://img.shields.io/badge/status-stable-blue)
+![License](https://img.shields.io/badge/license-MIT-orange)
 
-**Versión 1.0**  
-Hecho por **Daniel Donaldo Villanueva Canul**
+**Version 2.0**  
+Desarrollado por **Daniel Donaldo Villanueva Canul**
 
 ---
 
-## 🖼️ Capturas de pantalla
+## Capturas de pantalla
 
-### Dashboard principal
+### Pantalla principal
 ![Dashboard](assets/Convertidor.png)
 
 ### Instrucciones de uso
 ![Instrucciones](assets/Convertidor_Instrucciones.png)
 
-### Acerca de
-![Licencia](assets/Convertidor_Licencia.png)
+### Acerca del software
+![Acerca](assets/Convertidor_Licencia.png)
 
 ---
 
-## 🚀 Descripción
+## Descripcion
 
-**Convert** es un programa que convierte múltiples archivos PDF a documentos Word editables.  
-Detecta automáticamente si el PDF tiene texto o es escaneado:  
+**Convertidor Profesional de Documentos Hailie** es una herramienta de escritorio que permite convertir multiples archivos entre distintos formatos de documentos de forma masiva, con una interfaz profesional, robusta y a prueba de errores.
 
-- 📑 **PDF con texto** → usa **pdf2docx** (mantiene formato).  
-- 📷 **PDF escaneado** → usa **OCR con Tesseract** (extrae texto).  
+### Formatos soportados
+
+- PDF a Word (Microsoft Word)
+- Word a PDF
+- Word a TXT (texto plano)
+- TXT a Word
+- Imagen (PNG, JPG, JPEG, BMP) a PDF (combina todas las imagenes de una carpeta en un solo PDF, orden numerico automatico)
+
+### Caracteristicas especiales
+
+- Deteccion automatica: si un PDF tiene texto, se usa `pdf2docx` manteniendo el formato; si es escaneado, se aplica OCR con Tesseract (idioma espanol).
+- Interfaz grafica con pestañas para organizar las conversiones.
+- Barra de progreso y etiqueta de estado en tiempo real.
+- Validacion de carpetas y manejo de errores por archivo (una conversion fallida no detiene el proceso).
+- Estilo profesional sin emojis, colores neutros y tipografia clara.
 
 ---
 
-## ✨ Características
+## Requisitos previos
 
-- Interfaz gráfica profesional con **PyQt5**.  
-- Barra de progreso para seguimiento de conversiones.  
-- Botones de **Ayuda** y **Acerca de**.  
-- Exportación a ejecutable (.exe) con **PyInstaller**.  
-- Icono personalizado para el programa.  
+- Python 3.8 o superior (recomendado 3.12)
+- Microsoft Word instalado (para la conversion Word -> PDF en Windows)
+- Tesseract OCR instalado y agregado al PATH (para OCR en PDF escaneados)
+- Poppler (opcional, solo si se usara la conversion PDF a imagenes, la cual no esta incluida en esta version)
 
 ---
 
-## 📦 Instalación
+## Instalacion
 
 1. Clona el repositorio:
    ```bash
-   git clone https://github.com/VillanuevaDaniel22390538/convertidor-word-to-pdf.git
+   git clone https://github.com/VillanuevaDaniel22390538/convertidor-pdf-a-word.git
+   cd convertidor-pdf-a-word
 
-Instala dependencias: pip install -r requirements.txt
-
-Ejecuta el programa: python convert.py
+Crea un entorno virtual (recomendado):
+python -m venv venv
+venv\Scripts\activate   # Windows
+Instala las dependencias:
+pip install -r requirements.txt
+Ejecuta el programa:
+python convert.py
 
 Uso
-Selecciona la carpeta donde están tus archivos PDF.
+Selecciona la carpeta de entrada (donde estan los archivos a convertir).
+Selecciona la carpeta de salida (donde se guardaran los resultados).
+Elige la pestaña correspondiente a la conversion deseada.
+Haz clic en el boton de conversion.
+Espera a que finalice el proceso; la barra de progreso te indicara el avance.
 
-Selecciona la carpeta de salida para guardar los Word.
-
-Haz clic en Convertir.
-
-El programa detecta automáticamente si el PDF tiene texto o es escaneado.
-
-Descargas
-Puedes descargar la última versión compilada en la sección de Releases del repositorio.
-Incluye el archivo .exe listo para usar en Windows.
+Archivo ejecutable
+Puedes descargar la version compilada .exe desde la seccion Releases de este repositorio.
+No requiere tener Python instalado.
 
 Licencia
-Este proyecto está bajo la licencia MIT.
-Puedes usarlo, modificarlo y distribuirlo libremente, siempre dando crédito al autor.
+Este proyecto esta bajo la licencia MIT. Consulta el archivo LICENSE para mas detalles.
 
-Créditos
-Hecho con ❤️ por Daniel Donaldo Villanueva Canul
+Creditos
+Hecho con dedicacion por Daniel Donaldo Villanueva Canul
+Correo: danieviloficialcontacto@gmail.com
 
----
-
-## 🔮 Roadmap
-- [ ] Añadir soporte para más idiomas en OCR.
-- [ ] Mejorar la interfaz con temas oscuros.
-- [ ] Crear instalador con asistente (setup.exe).
-- [ ] Publicar versión multiplataforma (Linux/Mac).
+Roadmap (versiones futuras)
+Soporte para mas idiomas en OCR.
+Modo oscuro.
+Instalador con asistente (setup.exe).
+Portable para Linux/Mac.
+Conversion de PDF a imagenes (requiere Poppler).
