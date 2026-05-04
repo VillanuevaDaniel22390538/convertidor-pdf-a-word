@@ -1,4 +1,5 @@
 import os
+import subprocess
 import sys
 import re
 from PyQt5.QtWidgets import (
@@ -6,8 +7,8 @@ from PyQt5.QtWidgets import (
     QFileDialog, QMessageBox, QLineEdit, QHBoxLayout, QProgressBar,
     QTabWidget, QGroupBox
 )
-from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QFont, QIcon
+from PyQt5.QtCore import Qt, QUrl                    # NUEVO: QUrl para enlace
+from PyQt5.QtGui import QFont, QIcon, QDesktopServices  # NUEVO: QDesktopServices
 
 # Conversiones base
 from pdf2docx import Converter
@@ -49,7 +50,73 @@ def convert_with_ocr(pdf_path, word_path):
     doc.save(word_path)
 
 def convert_word_to_pdf(word_path, pdf_path):
-    docx2pdf_convert(word_path, pdf_path)
+    """
+    Convierte DOCX a PDF usando primero Microsoft Word, y si falla, prueba con LibreOffice.
+    Lanza una excepción si no encuentra ninguna opción.
+    """
+    # --- Intento 1: Usar Microsoft Word ---
+    try:
+        from docx2pdf import convert as docx2pdf_convert
+        docx2pdf_convert(word_path, pdf_path)
+        if os.path.exists(pdf_path) and os.path.getsize(pdf_path) > 0:
+            return  # Conversión exitosa con Word
+        else:
+            raise Exception("El archivo PDF generado por Word está vacío o no se creó.")
+    except Exception as e_word:
+        # Si falla, lo registramos y pasamos al siguiente método
+        print(f"Advertencia: Falló la conversión con Microsoft Word: {e_word}")
+    
+    # --- Intento 2: Usar LibreOffice (si está instalado) ---
+    try:
+        # Buscar la ruta de ejecución de LibreOffice
+        libreoffice_paths = [
+            r"C:\Program Files\LibreOffice\program\soffice.exe",
+            r"C:\Program Files (x86)\LibreOffice\program\soffice.exe",
+        ]
+        soffice_cmd = None
+        for path in libreoffice_paths:
+            if os.path.exists(path):
+                soffice_cmd = path
+                break
+        
+        # Si no se encontró, buscamos en el PATH del sistema
+        if soffice_cmd is None:
+            result = subprocess.run(['where', 'soffice'], capture_output=True, text=True)
+            if result.returncode == 0:
+                soffice_cmd = result.stdout.strip().split('\n')[0]
+        
+        if soffice_cmd is None:
+            raise Exception("No se encontró LibreOffice en el sistema. Instala LibreOffice desde https://libreoffice.org")
+        
+        # Ejecutar LibreOffice en modo headless para la conversión
+        cmd = [soffice_cmd, '--headless', '--convert-to', 'pdf', '--outdir', os.path.dirname(pdf_path), word_path]
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+        
+        # LibreOffice guarda el PDF en el directorio de salida con el mismo nombre base
+        generated_pdf = os.path.join(os.path.dirname(pdf_path), os.path.basename(word_path).replace('.docx', '.pdf'))
+        if os.path.exists(generated_pdf):
+            # Si el archivo generado no está en la ruta exacta que queríamos, lo movemos
+            if generated_pdf != pdf_path:
+                os.rename(generated_pdf, pdf_path)
+            if os.path.exists(pdf_path) and os.path.getsize(pdf_path) > 0:
+                return  # Conversión exitosa con LibreOffice
+            else:
+                raise Exception("El archivo PDF generado por LibreOffice está vacío.")
+        else:
+            raise Exception(f"No se pudo generar el PDF. Salida de LibreOffice: {result.stderr}")
+            
+    except subprocess.TimeoutExpired:
+        raise Exception("La conversión con LibreOffice excedió el tiempo límite de 60 segundos.")
+    except Exception as e_libre:
+        # Si ambos métodos fallan, mostramos un mensaje claro
+        raise Exception(
+            f"No se pudo convertir el archivo Word a PDF.\n"
+            f"Razón: {str(e_libre)}\n\n"
+            f"Soluciones posibles:\n"
+            f"1. Instala Microsoft Word (incluido en Microsoft Office).\n"
+            f"2. Instala LibreOffice (gratuito) desde https://libreoffice.org\n"
+            f"3. Verifica que el archivo '{os.path.basename(word_path)}' no esté dañado."
+        )
 
 def convert_word_to_txt(word_path, txt_path):
     doc = Document(word_path)
@@ -97,13 +164,13 @@ def convert_images_to_pdf(images_folder, output_pdf):
         raise ValueError("No hay imágenes válidas para convertir")
 
 # ------------------------------------------------------------
-# Interfaz gráfica profesional (sin emojis)
+# Interfaz gráfica profesional
 # ------------------------------------------------------------
 
 class ConverterApp(QWidget):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Convertidor Profesional de Documentos Hailie v2.0")
+        self.setWindowTitle("Convertidor Profesional de Documentos Hailie v2.1")  # MODIFICADO: v2.1
         self.setGeometry(150, 150, 750, 550)
         self.setMinimumSize(700, 500)
 
@@ -183,7 +250,7 @@ class ConverterApp(QWidget):
         layout = QVBoxLayout()
 
         # Título principal
-        title = QLabel("Convertidor Profesional de Documentos - Hailie v2.0")
+        title = QLabel("Convertidor Profesional de Documentos - Hailie v2.1")  # MODIFICADO: v2.1
         title.setAlignment(Qt.AlignCenter)
         title.setFont(QFont("Segoe UI", 18, QFont.Bold))
         title.setStyleSheet("color: #2c3e50; margin: 10px;")
@@ -231,17 +298,25 @@ class ConverterApp(QWidget):
         self.tabs.addTab(self.create_img_to_pdf_tab(), "Imagen -> PDF")
         layout.addWidget(self.tabs)
 
-        # Botones inferiores
+        # Botones inferiores (Ayuda, Acerca de, Donación)
         hbox_bottom = QHBoxLayout()
         btn_help = QPushButton("Ayuda")
         btn_help.setStyleSheet("background-color: #f39c12;")
         btn_help.clicked.connect(self.show_help)
+        
         btn_about = QPushButton("Acerca de")
         btn_about.setStyleSheet("background-color: #3498db;")
         btn_about.clicked.connect(self.show_about)
+        
+        # NUEVO: Botón de donación
+        btn_donate = QPushButton("Donar (PayPal)")
+        btn_donate.setStyleSheet("background-color: #e67e22; color: white;")
+        btn_donate.clicked.connect(self.open_donation_link)
+        
         hbox_bottom.addStretch()
         hbox_bottom.addWidget(btn_help)
         hbox_bottom.addWidget(btn_about)
+        hbox_bottom.addWidget(btn_donate)   # NUEVO
         layout.addLayout(hbox_bottom)
 
         self.setLayout(layout)
@@ -276,15 +351,20 @@ class ConverterApp(QWidget):
             self.status_label.setText(text)
         QApplication.processEvents()
 
+    # NUEVO: Abrir enlace de donación
+    def open_donation_link(self):
+        url = QUrl("https://paypal.me/danievilmathers?locale.x=es_XC&country.x=MX")
+        QDesktopServices.openUrl(url)
+
     # --------------------------------------------------------
     # Creación de pestañas
     # --------------------------------------------------------
     def create_pdf_word_tab(self):
         widget = QWidget()
         layout = QVBoxLayout()
-        btn_pdf_to_word = QPushButton("Convertir PDF a Word (multples archivos)")
+        btn_pdf_to_word = QPushButton("Convertir PDF a Word (múltiples archivos)")
         btn_pdf_to_word.clicked.connect(self.run_pdf_to_word)
-        btn_word_to_pdf = QPushButton("Convertir Word a PDF (multples archivos)")
+        btn_word_to_pdf = QPushButton("Convertir Word a PDF (múltiples archivos)")
         btn_word_to_pdf.clicked.connect(self.run_word_to_pdf)
         layout.addWidget(btn_pdf_to_word)
         layout.addWidget(btn_word_to_pdf)
@@ -295,9 +375,9 @@ class ConverterApp(QWidget):
     def create_word_txt_tab(self):
         widget = QWidget()
         layout = QVBoxLayout()
-        btn_word_to_txt = QPushButton("Convertir Word a TXT (multples archivos)")
+        btn_word_to_txt = QPushButton("Convertir Word a TXT (múltiples archivos)")
         btn_word_to_txt.clicked.connect(self.run_word_to_txt)
-        btn_txt_to_word = QPushButton("Convertir TXT a Word (multples archivos)")
+        btn_txt_to_word = QPushButton("Convertir TXT a Word (múltiples archivos)")
         btn_txt_to_word.clicked.connect(self.run_txt_to_word)
         layout.addWidget(btn_word_to_txt)
         layout.addWidget(btn_txt_to_word)
@@ -308,7 +388,7 @@ class ConverterApp(QWidget):
     def create_img_to_pdf_tab(self):
         widget = QWidget()
         layout = QVBoxLayout()
-        btn_img_to_pdf = QPushButton("Convertir imagenes de la carpeta a PDF")
+        btn_img_to_pdf = QPushButton("Convertir imágenes de la carpeta a PDF")
         btn_img_to_pdf.clicked.connect(self.run_img_to_pdf)
         layout.addWidget(btn_img_to_pdf)
         layout.addStretch()
@@ -338,7 +418,7 @@ class ConverterApp(QWidget):
                     convert_with_ocr(pdf_path, word_path)
             except Exception as e:
                 QMessageBox.warning(self, "Error en archivo", f"Fallo en {file}:\n{str(e)}")
-        self.update_progress(100, "Conversion completada.")
+        self.update_progress(100, "Conversión completada.")
         QMessageBox.information(self, "Completado", f"PDF a Word finalizado.\nSalida: {outp}")
 
     def run_word_to_pdf(self):
@@ -358,7 +438,7 @@ class ConverterApp(QWidget):
                 convert_word_to_pdf(word_path, pdf_path)
             except Exception as e:
                 QMessageBox.warning(self, "Error en archivo", f"Fallo en {file}:\n{str(e)}")
-        self.update_progress(100, "Conversion completada.")
+        self.update_progress(100, "Conversión completada.")
         QMessageBox.information(self, "Completado", f"Word a PDF finalizado.\nSalida: {outp}")
 
     def run_word_to_txt(self):
@@ -378,7 +458,7 @@ class ConverterApp(QWidget):
                 convert_word_to_txt(word_path, txt_path)
             except Exception as e:
                 QMessageBox.warning(self, "Error en archivo", f"Fallo en {file}:\n{str(e)}")
-        self.update_progress(100, "Conversion completada.")
+        self.update_progress(100, "Conversión completada.")
         QMessageBox.information(self, "Completado", f"Word a TXT finalizado.\nSalida: {outp}")
 
     def run_txt_to_word(self):
@@ -398,18 +478,17 @@ class ConverterApp(QWidget):
                 convert_txt_to_word(txt_path, word_path)
             except Exception as e:
                 QMessageBox.warning(self, "Error en archivo", f"Fallo en {file}:\n{str(e)}")
-        self.update_progress(100, "Conversion completada.")
+        self.update_progress(100, "Conversión completada.")
         QMessageBox.information(self, "Completado", f"TXT a Word finalizado.\nSalida: {outp}")
 
     def run_img_to_pdf(self):
         ok, inp, outp = self.validate_folders()
         if not ok:
             return
-        # Verificar que la carpeta de entrada tenga imágenes
         valid_ext = ('.png', '.jpg', '.jpeg', '.bmp')
         has_images = any(f.lower().endswith(valid_ext) for f in os.listdir(inp))
         if not has_images:
-            QMessageBox.warning(self, "Aviso", "No se encontraron imagenes (PNG, JPG, JPEG, BMP) en la carpeta de entrada.")
+            QMessageBox.warning(self, "Aviso", "No se encontraron imágenes (PNG, JPG, JPEG, BMP) en la carpeta de entrada.")
             return
 
         default_name = os.path.join(outp, "imagenes_convertidas.pdf")
@@ -417,46 +496,46 @@ class ConverterApp(QWidget):
         if not output_pdf:
             return
 
-        self.update_progress(0, "Convirtiendo imagenes a PDF...")
+        self.update_progress(0, "Convirtiendo imágenes a PDF...")
         try:
             convert_images_to_pdf(inp, output_pdf)
             self.update_progress(100, "PDF creado exitosamente.")
             QMessageBox.information(self, "Completado", f"PDF generado:\n{output_pdf}")
         except Exception as e:
             QMessageBox.critical(self, "Error", f"No se pudo crear el PDF:\n{str(e)}")
-            self.update_progress(0, "Error en la conversion")
+            self.update_progress(0, "Error en la conversión")
 
     # --------------------------------------------------------
-    # Ayuda y Acerca de (sin emojis)
+    # Ayuda y Acerca de (actualizados)
     # --------------------------------------------------------
     def show_help(self):
         QMessageBox.information(self, "Ayuda",
             "GUIA DE USO\n\n"
             "1. Seleccione la carpeta de ENTRADA (con los archivos a convertir).\n"
-            "2. Seleccione la carpeta de SALIDA (donde se guardaran los resultados).\n"
-            "3. Vaya a la pestana correspondiente.\n"
-            "4. Haga clic en el boton de conversion deseado.\n\n"
+            "2. Seleccione la carpeta de SALIDA (donde se guardarán los resultados).\n"
+            "3. Vaya a la pestaña correspondiente.\n"
+            "4. Haga clic en el botón de conversión deseado.\n\n"
             "CONVERSIONES DISPONIBLES:\n"
-            "- PDF a Word: Convierte PDFs a DOCX. Si el PDF es escaneado, usa OCR automaticamente.\n"
-            "- Word a PDF: Convierte DOCX a PDF (requiere Microsoft Word instalado).\n"
+            "- PDF a Word: Convierte PDFs a DOCX. Si el PDF es escaneado, usa OCR automáticamente.\n"
+            "- Word a PDF: Convierte DOCX a PDF (intenta primero con Microsoft Word, luego con LibreOffice).\n"
             "- Word a TXT: Extrae el texto plano de los archivos Word.\n"
             "- TXT a Word: Crea documentos Word a partir de archivos de texto.\n"
-            "- Imagen a PDF: Combina todas las imagenes de una carpeta en un solo PDF (orden numerico natural).\n\n"
+            "- Imagen a PDF: Combina todas las imágenes de una carpeta en un solo PDF (orden numérico natural).\n\n"
             "REQUISITOS ADICIONALES:\n"
             "- Para OCR: Tesseract instalado y en el PATH.\n"
-            "- Para Word a PDF: Microsoft Word (Windows) o LibreOffice (configuracion extra)."
-        )
+            "- Para Word a PDF: Microsoft Word o LibreOffice (gratuito).")
 
     def show_about(self):
         QMessageBox.information(self, "Acerca de",
-            "Convertidor Profesional de Documentos - Hailie Version 2.0\n\n"
+            "Convertidor Profesional de Documentos - Hailie Versión 2.1\n\n"
             "Desarrollado por: Daniel Donaldo Villanueva Canul\n"
+            "Correo de contacto: danieviloficialcontacto@gmail.com\n\n"   # NUEVO
             "Lenguaje: Python 3 + PyQt5\n"
-            "Librerias: pdf2docx, PyPDF2, pdf2image, pytesseract, python-docx, docx2pdf, Pillow\n\n"
-            "Conversion masiva de documentos con interfaz profesional.\n"
+            "Librerías: pdf2docx, PyPDF2, pdf2image, pytesseract, python-docx, docx2pdf, Pillow\n\n"
+            "Conversión masiva de documentos con interfaz profesional.\n"
             "(C) 2026 - Todos los derechos reservados.\n\n"
-            "Gracias por usar Convertidor Profesional Hailie."
-        )
+            "Si te es útil este software, considera hacer una donación para apoyar el desarrollo continuo.\n"
+            "¡Gracias por usar Convertidor Profesional Hailie!")
 
 # ------------------------------------------------------------
 # Punto de entrada
